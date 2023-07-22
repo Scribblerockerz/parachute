@@ -32,13 +32,13 @@ func init() {
 		}
 	})
 
-	packCmd.PersistentFlags().StringVarP(&configFilePath, "config", "c", "", "config file (default is parachute.toml)")
+	rootCmd.PersistentFlags().StringVarP(&configFilePath, "config", "c", "", "config file (default is parachute.toml)")
 
-	packCmd.PersistentFlags().BoolP("silent", "s", false, "prevent human readable output")
-	packCmd.PersistentFlags().BoolP("no-encryption", "E", false, "prevent archive encryption")
-	packCmd.PersistentFlags().StringP("pass", "p", "", "encryption passphrase")
+	rootCmd.PersistentFlags().BoolP("silent", "s", false, "prevent human readable output")
+	rootCmd.PersistentFlags().BoolP("no-encryption", "E", false, "prevent archive encryption")
+	rootCmd.PersistentFlags().StringP("pass", "p", "", "encryption passphrase")
 
-	viper.BindPFlag("silent", packCmd.PersistentFlags().Lookup("silent"))
-	viper.BindPFlag("no_encryption", packCmd.PersistentFlags().Lookup("no-encryption"))
-	viper.BindPFlag("passphrase", packCmd.PersistentFlags().Lookup("pass"))
+	viper.BindPFlag("silent", rootCmd.PersistentFlags().Lookup("silent"))
+	viper.BindPFlag("no_encryption", rootCmd.PersistentFlags().Lookup("no-encryption"))
+	viper.BindPFlag("passphrase", rootCmd.PersistentFlags().Lookup("pass"))
 }

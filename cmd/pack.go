@@ -13,30 +13,39 @@ import (
 var packCmd = &cobra.Command{
 	Use:   "pack SOURCE [flags]",
 	Short: "Create an archive of a file/directory.",
-	Run:   run,
+	Run:   runPack,
 }
 
-var output string
+var packOutput string
 
 func init() {
 	rootCmd.AddCommand(packCmd)
 
-	packCmd.Flags().StringVarP(&output, "output", "o", "", "output destination")
+	packCmd.Flags().StringVarP(&packOutput, "output", "o", "", "output destination")
 }
 
-func run(cmd *cobra.Command, args []string) {
+func runPack(cmd *cobra.Command, args []string) {
 
-	err := validateInput(args)
+	err := validatePackInput(args)
 	if err != nil {
 		panic(err)
 	}
 
-	packArgs, err := getPackArgs(args, output)
+	packArgs, err := getPackArgs(args, packOutput)
 	if err != nil {
 		panic(err)
 	}
 
-	archivePath, err := archive.NewArchive(packArgs.source, packArgs.destination)
+	archivePath, err := archive.DestinationPath(
+		packArgs.destination,
+		"archive.zip",
+		false,
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	err = archive.ZipSource(packArgs.source, archivePath)
 	if err != nil {
 		panic(err)
 	}
@@ -46,7 +55,7 @@ func run(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	encryptedFile := fmt.Sprintf("%s.enc", archivePath)
+	encryptedFile := fmt.Sprintf("%s.%s", archivePath, archive.ENCRYPTED_FILE_SUFFIX)
 	passphrase := viper.GetString("passphrase")
 
 	err = archive.EncryptFile(archivePath, encryptedFile, passphrase)
@@ -86,7 +95,7 @@ func getPackArgs(args []string, output string) (*packArgs, error) {
 	}, nil
 }
 
-func validateInput(args []string) error {
+func validatePackInput(args []string) error {
 	if len(args) == 0 {
 		return errors.New("source file or directory must be provided")
 	}
