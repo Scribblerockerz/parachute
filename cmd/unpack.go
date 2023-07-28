@@ -37,7 +37,7 @@ func runUnpack(cmd *cobra.Command, args []string) {
 		panic(err)
 	}
 
-	isEncrypted := isFileEncrypted(unpackArgs.source)
+	isEncrypted := archive.IsFileEncrypted(unpackArgs.source)
 	passphrase := viper.GetString("passphrase")
 
 	source := unpackArgs.source
@@ -119,8 +119,4 @@ func validateUnpackInput(args []string) error {
 	}
 
 	return nil
-}
-
-func isFileEncrypted(path string) bool {
-	return strings.HasSuffix(path, fmt.Sprintf(".%s", archive.ENCRYPTED_FILE_SUFFIX))
 }

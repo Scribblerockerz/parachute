@@ -57,3 +57,7 @@ func DestinationPath(destination string, fallbackFilename string, incrementIfExi
 	return fmt.Sprintf("%s%s", destination, time.Now().Format("20060102150405")), nil
 
 }
+
+func IsFileEncrypted(path string) bool {
+	return strings.HasSuffix(path, fmt.Sprintf(".%s", ENCRYPTED_FILE_SUFFIX))
+}

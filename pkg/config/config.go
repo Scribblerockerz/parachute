@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 
+	"github.com/rs/zerolog"
 	"github.com/spf13/viper"
 )
 
@@ -31,9 +32,14 @@ func InitConfig(configFilePath string) error {
 		}
 	}
 
-	viper.SetDefault("silent", false)
+	viper.SetDefault("log_level", zerolog.LevelErrorValue)
+	viper.SetDefault("log_format", "")
 	viper.SetDefault("passphrase", "")
 	viper.SetDefault("no_encryption", false)
+	viper.SetDefault("endpoint", "")
+	viper.SetDefault("access_key", "")
+	viper.SetDefault("secret_key", "")
+	viper.SetDefault("output", "")
 
 	return nil
 }

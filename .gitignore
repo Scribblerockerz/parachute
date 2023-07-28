@@ -18,6 +18,7 @@
 # vendor/
 playground/
 .DS_Store
+bin/
 
 # Go workspace file
 go.work
