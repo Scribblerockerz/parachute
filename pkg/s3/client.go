@@ -33,19 +33,40 @@ type PayloadInfo struct {
 	ContentType string
 }
 
-func NewPayload(destination string, filePath string) (*PayloadInfo, error) {
-	if !strings.HasPrefix(destination, "s3://") {
-		return nil, errors.New("invalid destination provided. Expected 's3://bucket/object' destination format")
+func NewPayload(remote string, filePath string) (*PayloadInfo, error) {
+	if !strings.HasPrefix(remote, "s3://") {
+		return nil, errors.New("invalid remote target provided. Expected 's3://bucket/object' format")
 	}
 
-	destination, _ = strings.CutPrefix(destination, "s3://")
-	parts := strings.SplitAfterN(destination, "/", 2)
+	remote, _ = strings.CutPrefix(remote, "s3://")
+	parts := strings.SplitAfterN(remote, "/", 2)
 
 	return &PayloadInfo{
 		Bucket:      strings.Trim(parts[0], "/"),
 		Object:      strings.Trim(parts[1], "/"),
 		FilePath:    filePath,
 		ContentType: "application/octet-stream",
+	}, nil
+}
+
+type DownloadInfo struct {
+	Bucket   string
+	Object   string
+	FilePath string
+}
+
+func NewDownload(remote string, filePath string) (*DownloadInfo, error) {
+	if !strings.HasPrefix(remote, "s3://") {
+		return nil, errors.New("invalid remote target provided. Expected 's3://bucket/object' format")
+	}
+
+	remote, _ = strings.CutPrefix(remote, "s3://")
+	parts := strings.SplitAfterN(remote, "/", 2)
+
+	return &DownloadInfo{
+		Bucket:   strings.Trim(parts[0], "/"),
+		Object:   strings.Trim(parts[1], "/"),
+		FilePath: filePath,
 	}, nil
 }
 
@@ -58,4 +79,8 @@ func (s3 *S3Client) UploadPayload(ctx context.Context, payload *PayloadInfo) (mi
 	}
 
 	return info, nil
+}
+
+func (s3 *S3Client) DownloadPayload(ctx context.Context, info *DownloadInfo) error {
+	return s3.minioClient.FGetObject(ctx, info.Bucket, info.Object, info.FilePath, minio.GetObjectOptions{})
 }

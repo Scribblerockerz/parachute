@@ -50,7 +50,7 @@ func runUnpack(cmd *cobra.Command, args []string) {
 			archive.GetFallbackName(
 				source,
 				"archive",
-				fmt.Sprintf(".%s", archive.ENCRYPTED_FILE_SUFFIX),
+				archive.ENCRYPTED_FILE_SUFFIX,
 			),
 			false,
 		)
@@ -114,7 +114,7 @@ func validateUnpackInput(args []string) error {
 		return errors.New("source archive must be provided")
 	}
 
-	if strings.HasSuffix(args[0], fmt.Sprintf(".%s", archive.ENCRYPTED_FILE_SUFFIX)) && viper.GetString("passphrase") == "" {
+	if strings.HasSuffix(args[0], archive.ENCRYPTED_FILE_SUFFIX) && viper.GetString("passphrase") == "" {
 		return errors.New("provided passphrase is empty")
 	}
 

@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-const ENCRYPTED_FILE_SUFFIX = "enc"
+const ENCRYPTED_FILE_SUFFIX = ".enc"
 
 func GetFallbackName(hint string, fallback string, suffix string) string {
 	if hint == "" {
@@ -59,5 +59,5 @@ func DestinationPath(destination string, fallbackFilename string, incrementIfExi
 }
 
 func IsFileEncrypted(path string) bool {
-	return strings.HasSuffix(path, fmt.Sprintf(".%s", ENCRYPTED_FILE_SUFFIX))
+	return strings.HasSuffix(path, ENCRYPTED_FILE_SUFFIX)
 }

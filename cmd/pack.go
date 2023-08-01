@@ -55,7 +55,7 @@ func runPack(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	encryptedFile := fmt.Sprintf("%s.%s", archivePath, archive.ENCRYPTED_FILE_SUFFIX)
+	encryptedFile := fmt.Sprintf("%s%s", archivePath, archive.ENCRYPTED_FILE_SUFFIX)
 	passphrase := viper.GetString("passphrase")
 
 	err = archive.EncryptFile(archivePath, encryptedFile, passphrase)

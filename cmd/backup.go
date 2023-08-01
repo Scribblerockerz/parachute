@@ -9,46 +9,47 @@ import (
 
 	"github.com/rs/zerolog/log"
 	"github.com/scribblerockerz/parachute/pkg/archive"
+	"github.com/scribblerockerz/parachute/pkg/config"
 	"github.com/scribblerockerz/parachute/pkg/s3"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 var backupCmd = &cobra.Command{
-	Use:   "backup SOURCE [flags]",
-	Short: "Create an archive (encrypted) of the SOURCE and move it to the destination",
+	Use:   "backup LOCAL [flags]",
+	Short: "Create an archive (encrypted) of the LOCAL souce and move it to the REMOTE destination",
 	RunE:  runBackup,
 }
 
 func init() {
 	rootCmd.AddCommand(backupCmd)
 
-	backupCmd.Flags().StringP("output", "o", "", "output destination")
-	backupCmd.Flags().String("endpoint", "", "s3 endpoint")
-	backupCmd.Flags().String("access-key", "", "s3 access key")
-	backupCmd.Flags().String("secret-key", "", "s3 secret key")
+	backupCmd.Flags().StringP("remote", "r", "", "remote destination (S3)")
+	backupCmd.Flags().String("endpoint", "", "S3 endpoint")
+	backupCmd.Flags().String("access-key", "", "S3 access key")
+	backupCmd.Flags().String("secret-key", "", "S3 secret key")
 
 	viper.BindPFlag("endpoint", backupCmd.Flags().Lookup("endpoint"))
 	viper.BindPFlag("access_key", backupCmd.Flags().Lookup("access-key"))
 	viper.BindPFlag("secret_key", backupCmd.Flags().Lookup("secret-key"))
-	viper.BindPFlag("output", backupCmd.Flags().Lookup("output"))
+	viper.BindPFlag("remote", backupCmd.Flags().Lookup("remote"))
 }
 
 func runBackup(cmd *cobra.Command, args []string) error {
 
-	log.Info().Strs("args", args).Msg("starting backup crreation")
+	log.Info().Strs("args", args).Msg("started backup creation")
 
-	err := validateBackupInput(args, viper.GetString("output"))
+	err := validateBackupInput(args, viper.GetString("remote"))
 	if err != nil {
 		return err
 	}
 
-	backupArgs, err := getBackupArgs(args, viper.GetString("output"))
+	backupArgs, err := getBackupArgs(args, viper.GetString("remote"))
 	if err != nil {
 		return err
 	}
 
-	err = validateS3Configuration()
+	err = config.ValidateS3Configuration()
 	if err != nil {
 		return err
 	}
@@ -77,7 +78,7 @@ func runBackup(cmd *cobra.Command, args []string) error {
 	uploadSourceFile := archivePath
 
 	if !viper.GetBool("no_encryption") {
-		encryptedFile := fmt.Sprintf("%s.%s", archivePath, archive.ENCRYPTED_FILE_SUFFIX)
+		encryptedFile := fmt.Sprintf("%s%s", archivePath, archive.ENCRYPTED_FILE_SUFFIX)
 		passphrase := viper.GetString("passphrase")
 
 		err = archive.EncryptFile(archivePath, encryptedFile, passphrase)
@@ -137,7 +138,7 @@ func runBackup(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func validateBackupInput(args []string, output string) error {
+func validateBackupInput(args []string, remote string) error {
 	if len(args) == 0 {
 		return errors.New("source archive must be provided")
 	}
@@ -150,12 +151,12 @@ func validateBackupInput(args []string, output string) error {
 		log.Warn().Msg("no encryption requested")
 	}
 
-	if output == "" {
-		return errors.New("output destination must be provided")
+	if remote == "" {
+		return errors.New("remote destination must be provided")
 	}
 
-	if !strings.HasPrefix(output, "s3://") {
-		return errors.New("output must be declared in \"s3://bucket/some-path\" format")
+	if !strings.HasPrefix(remote, "s3://") {
+		return errors.New("remote must be declared in \"s3://bucket/some-path\" format")
 	}
 
 	return nil
@@ -171,20 +172,4 @@ func getBackupArgs(args []string, output string) (*backupArgs, error) {
 		source:      args,
 		destination: output,
 	}, nil
-}
-
-func validateS3Configuration() error {
-	if viper.GetString("endpoint") == "" {
-		return errors.New("endpoint must be provided")
-	}
-
-	if viper.GetString("access_key") == "" {
-		return errors.New("access key must be provided")
-	}
-
-	if viper.GetString("secret_key") == "" {
-		return errors.New("secret key must be provided")
-	}
-
-	return nil
 }

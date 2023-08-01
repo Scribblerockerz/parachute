@@ -39,7 +39,7 @@ func InitConfig(configFilePath string) error {
 	viper.SetDefault("endpoint", "")
 	viper.SetDefault("access_key", "")
 	viper.SetDefault("secret_key", "")
-	viper.SetDefault("output", "")
+	viper.SetDefault("remote", "")
 
 	return nil
 }
