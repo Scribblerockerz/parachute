@@ -4,6 +4,11 @@ import (
 	"os"
 
 	"github.com/rs/zerolog/log"
+	"github.com/scribblerockerz/parachute/cmd/backup"
+	"github.com/scribblerockerz/parachute/cmd/pack"
+	"github.com/scribblerockerz/parachute/cmd/restore"
+	"github.com/scribblerockerz/parachute/cmd/unpack"
+	"github.com/scribblerockerz/parachute/cmd/version"
 	"github.com/scribblerockerz/parachute/pkg/config"
 	"github.com/scribblerockerz/parachute/pkg/logger"
 	"github.com/spf13/cobra"
@@ -34,6 +39,12 @@ func init() {
 			panic(err)
 		}
 	})
+
+	rootCmd.AddCommand(backup.BackupCmd)
+	rootCmd.AddCommand(restore.RestoreCmd)
+	rootCmd.AddCommand(pack.PackCmd)
+	rootCmd.AddCommand(unpack.UnpackCmd)
+	rootCmd.AddCommand(version.VersionCmd)
 
 	rootCmd.SilenceUsage = true
 	rootCmd.SilenceErrors = true

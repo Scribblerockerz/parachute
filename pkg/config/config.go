@@ -36,6 +36,7 @@ func InitConfig(configFilePath string) error {
 	viper.SetDefault("log_format", "")
 	viper.SetDefault("passphrase", "")
 	viper.SetDefault("no_encryption", false)
+	viper.SetDefault("timed_name", false)
 	viper.SetDefault("endpoint", "")
 	viper.SetDefault("access_key", "")
 	viper.SetDefault("secret_key", "")

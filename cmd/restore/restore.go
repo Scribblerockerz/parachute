@@ -1,10 +1,9 @@
-package cmd
+package restore
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/rs/zerolog/log"
@@ -15,24 +14,26 @@ import (
 	"github.com/spf13/viper"
 )
 
-var restoreCmd = &cobra.Command{
-	Use:   "restore LOCAL [flags]",
-	Short: "Restore an REMOTE archive (encrypted) from an S3 source and move it to a LOCAL destination",
-	RunE:  runRestore,
+var RestoreCmd = &cobra.Command{
+	Use:    "restore LOCAL [flags]",
+	Short:  "Restore an REMOTE archive (encrypted) from an S3 source and move it to a LOCAL destination",
+	RunE:   runRestore,
+	PreRun: preRun,
 }
 
 func init() {
-	rootCmd.AddCommand(restoreCmd)
+	RestoreCmd.Flags().StringP("remote", "o", "", "remote destination (S3)")
+	RestoreCmd.Flags().String("endpoint", "", "S3 endpoint")
+	RestoreCmd.Flags().String("access-key", "", "S3 access key")
+	RestoreCmd.Flags().String("secret-key", "", "S3 secret key")
+}
 
-	restoreCmd.Flags().StringP("remote", "o", "", "remote destination (S3)")
-	restoreCmd.Flags().String("endpoint", "", "S3 endpoint")
-	restoreCmd.Flags().String("access-key", "", "S3 access key")
-	restoreCmd.Flags().String("secret-key", "", "S3 secret key")
-
-	viper.BindPFlag("endpoint", restoreCmd.Flags().Lookup("endpoint"))
-	viper.BindPFlag("access_key", restoreCmd.Flags().Lookup("access-key"))
-	viper.BindPFlag("secret_key", restoreCmd.Flags().Lookup("secret-key"))
-	viper.BindPFlag("remote", restoreCmd.Flags().Lookup("remote"))
+// preRun will initialize viper flag bindings, to prevent overrides of the same key
+func preRun(cmd *cobra.Command, args []string) {
+	viper.BindPFlag("endpoint", cmd.Flags().Lookup("endpoint"))
+	viper.BindPFlag("access_key", cmd.Flags().Lookup("access-key"))
+	viper.BindPFlag("secret_key", cmd.Flags().Lookup("secret-key"))
+	viper.BindPFlag("remote", cmd.Flags().Lookup("remote"))
 }
 
 func runRestore(cmd *cobra.Command, args []string) error {
@@ -65,14 +66,13 @@ func runRestore(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	destinationFilePath := fmt.Sprintf("%s.zip", restoreArgs.destination)
-	isEncrypted := archive.IsFileEncrypted(restoreArgs.remote)
+	a, err := archive.CreateTempArchiveFromRemoteFile(restoreArgs.remote)
 
-	if isEncrypted {
-		destinationFilePath = fmt.Sprintf("%s%s", destinationFilePath, archive.ENCRYPTED_FILE_SUFFIX)
+	if err != nil {
+		return err
 	}
 
-	downloadInfo, err := s3.NewDownload(restoreArgs.remote, destinationFilePath)
+	downloadInfo, err := s3.NewDownload(restoreArgs.remote, a.TempDestination())
 	if err != nil {
 		return err
 	}
@@ -88,42 +88,33 @@ func runRestore(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	log.Debug().Str("bucket", downloadInfo.Bucket).Str("object", downloadInfo.Object).Msg("finished downloading")
+	log.Debug().Str("bucket", downloadInfo.Bucket).Str("object", downloadInfo.Object).Str("temdDestination", a.TempDestination()).Msg("finished downloading")
 
-	archivePath := downloadInfo.FilePath
-
-	if isEncrypted {
-		passphrase := viper.GetString("passphrase")
-		decryptedFile, _ := strings.CutSuffix(downloadInfo.FilePath, archive.ENCRYPTED_FILE_SUFFIX)
-		err := archive.DecryptFile(downloadInfo.FilePath, decryptedFile, passphrase)
+	if a.IsEncrupted {
+		err = a.Decrypt(viper.GetString("passphrase"))
 		if err != nil {
 			return err
 		}
 
-		log.Debug().Str("decryptedFile", decryptedFile).Msg("decrypted temporary archive")
-
-		archivePath = decryptedFile
-
-		err = os.Remove(downloadInfo.FilePath)
-		if err != nil {
-			return err
-		}
-
-		log.Debug().Str("encryptedFile", downloadInfo.FilePath).Msg("removed temporary encrypted archive")
+		log.Debug().Str("decryptedFile", a.TempDestination()).Msg("decrypted temporary archive")
 	}
 
-	err = archive.UnzipSource(archivePath, restoreArgs.destination)
+	err = a.Unzip()
 	if err != nil {
 		return err
 	}
 
-	err = os.Remove(archivePath)
+	fileDestination, err := a.CopyIntoDir(a.Destination(), restoreArgs.destination, false)
 	if err != nil {
 		return err
 	}
 
-	log.Debug().Str("archive", archivePath).Msg("removed temporary archive")
-	log.Info().Str("destination", restoreArgs.destination).Msg("finsihed restore to destination")
+	err = a.Cleanup()
+	if err != nil {
+		return err
+	}
+
+	log.Info().Str("destination", fileDestination).Msg("finsihed restore to destination")
 
 	return nil
 }

@@ -1,10 +1,8 @@
-package cmd
+package backup
 
 import (
 	"context"
 	"errors"
-	"fmt"
-	"os"
 	"strings"
 
 	"github.com/rs/zerolog/log"
@@ -15,24 +13,26 @@ import (
 	"github.com/spf13/viper"
 )
 
-var backupCmd = &cobra.Command{
-	Use:   "backup LOCAL [flags]",
-	Short: "Create an archive (encrypted) of the LOCAL souce and move it to the REMOTE destination",
-	RunE:  runBackup,
+var BackupCmd = &cobra.Command{
+	Use:    "backup LOCAL [flags]",
+	Short:  "Create an archive (encrypted) of the LOCAL souce and move it to the REMOTE destination",
+	RunE:   runBackup,
+	PreRun: preRun,
 }
 
 func init() {
-	rootCmd.AddCommand(backupCmd)
+	BackupCmd.Flags().StringP("remote", "r", "", "remote destination (S3)")
+	BackupCmd.Flags().String("endpoint", "", "S3 endpoint")
+	BackupCmd.Flags().String("access-key", "", "S3 access key")
+	BackupCmd.Flags().String("secret-key", "", "S3 secret key")
+}
 
-	backupCmd.Flags().StringP("remote", "r", "", "remote destination (S3)")
-	backupCmd.Flags().String("endpoint", "", "S3 endpoint")
-	backupCmd.Flags().String("access-key", "", "S3 access key")
-	backupCmd.Flags().String("secret-key", "", "S3 secret key")
-
-	viper.BindPFlag("endpoint", backupCmd.Flags().Lookup("endpoint"))
-	viper.BindPFlag("access_key", backupCmd.Flags().Lookup("access-key"))
-	viper.BindPFlag("secret_key", backupCmd.Flags().Lookup("secret-key"))
-	viper.BindPFlag("remote", backupCmd.Flags().Lookup("remote"))
+// preRun will initialize viper flag bindings, to prevent overrides of the same key
+func preRun(cmd *cobra.Command, args []string) {
+	viper.BindPFlag("endpoint", cmd.Flags().Lookup("endpoint"))
+	viper.BindPFlag("access_key", cmd.Flags().Lookup("access-key"))
+	viper.BindPFlag("secret_key", cmd.Flags().Lookup("secret-key"))
+	viper.BindPFlag("remote", cmd.Flags().Lookup("remote"))
 }
 
 func runBackup(cmd *cobra.Command, args []string) error {
@@ -54,48 +54,13 @@ func runBackup(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	cwd, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-
-	archivePath, err := archive.DestinationPath(
-		cwd,
-		"archive.zip",
-		false,
+	a, err := archive.CreateArchiveFromSources(
+		backupArgs.source,
+		!viper.GetBool("no_encryption"),
+		viper.GetString("passphrase"),
 	)
 	if err != nil {
 		return err
-	}
-
-	err = archive.ZipSource(backupArgs.source, archivePath)
-	if err != nil {
-		return err
-	}
-
-	log.Debug().Str("archive", archivePath).Msg("created temporary archive")
-
-	uploadSourceFile := archivePath
-
-	if !viper.GetBool("no_encryption") {
-		encryptedFile := fmt.Sprintf("%s%s", archivePath, archive.ENCRYPTED_FILE_SUFFIX)
-		passphrase := viper.GetString("passphrase")
-
-		err = archive.EncryptFile(archivePath, encryptedFile, passphrase)
-		if err != nil {
-			return err
-		}
-
-		log.Debug().Str("encryptedFile", encryptedFile).Msg("encrypted temporary archive")
-
-		err = os.Remove(archivePath)
-		if err != nil {
-			return err
-		}
-
-		log.Debug().Str("archive", archivePath).Msg("removed temporary unencrypted archive")
-
-		uploadSourceFile = encryptedFile
 	}
 
 	client, err := s3.NewClient(
@@ -109,7 +74,7 @@ func runBackup(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	payload, err := s3.NewPayload(backupArgs.destination, uploadSourceFile)
+	payload, err := s3.NewPayload(backupArgs.destination, a.TempDestination())
 	if err != nil {
 		return err
 	}
@@ -127,12 +92,11 @@ func runBackup(cmd *cobra.Command, args []string) error {
 
 	log.Debug().Str("bucket", payload.Bucket).Str("object", payload.Object).Msg("finished uploading")
 
-	err = os.Remove(uploadSourceFile)
+	err = a.Cleanup()
 	if err != nil {
 		return err
 	}
 
-	log.Debug().Str("archive", uploadSourceFile).Msg("removed temporary archive")
 	log.Info().Str("destination", backupArgs.destination).Msg("finsihed backup to destination")
 
 	return nil
