@@ -4,7 +4,19 @@ A backup utility for s3 compatible storages.
 
 ## Install
 
-TBD
+Download the [latest version](https://github.com/Scribblerockerz/parachute/releases/latest) of `parachute` or use the folling snippet to fetch the latest version in your builds.
+
+```sh
+# download latest binary from github
+PARACHUTE_BINARY_URL=$(curl -sH "Accept: application/vnd.github.v3+json" \
+  "https://api.github.com/repos/Scribblerockerz/parachute/releases/latest" \
+  | jq -r '.assets[].browser_download_url' \
+  | grep -E 'linux_amd64\.tar\.gz$')
+
+wget -O parachute.tar.gz $PARACHUTE_BINARY_URL
+tar -xf parachute.tar.gz -C /usr/local/bin
+rm parachute.tar.gz
+```
 
 ## Usage
 
